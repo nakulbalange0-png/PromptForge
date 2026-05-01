@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROMPTFORGE // GEMINI AGENT</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=DM+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #ffffff; --surface: #fafafa; --border: #e0e0e0; --text: #111; --muted: #777; --accent: #000; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+        
+        /* Layout */
+        header { padding: 2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-family: 'DM Mono', monospace; font-size: 1.2rem; font-weight: 500; letter-spacing: -1px; }
+        main { max-width: 800px; margin: 4rem auto; padding: 0 1.5rem; }
+        
+        /* UI Elements */
+        .nav-link { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); cursor: pointer; border-bottom: 1px solid transparent; transition: 0.3s; }
+        .nav-link:hover { color: var(--accent); border-color: var(--accent); }
+        
+        textarea { width: 100%; height: 160px; padding: 1.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font-family: inherit; font-size: 1rem; resize: none; outline: none; margin-bottom: 1rem; transition: border 0.3s; }
+        textarea:focus { border-color: var(--accent); }
+        
+        .controls { display: grid; grid-template-columns: 1fr 1fr 180px; gap: 10px; margin-bottom: 2rem; }
+        select, button { padding: 0.8rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; font-family: inherit; }
+        button.primary { background: var(--accent); color: #fff; border: none; font-weight: 500; }
+        button.primary:hover { opacity: 0.9; }
+
+        #output { position: relative; background: var(--surface); border: 1px solid var(--border); padding: 2rem; border-radius: 4px; font-family: 'DM Mono', monospace; font-size: 0.9rem; min-height: 150px; white-space: pre-wrap; }
+        .status-tag { position: absolute; top: -10px; right: 20px; background: #fff; border: 1px solid var(--border); padding: 2px 10px; font-size: 9px; color: var(--muted); }
+
+        /* Key Modal */
+        #key-modal { position: fixed; inset: 0; background: rgba(255,255,255,0.98); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { max-width: 400px; width: 90%; padding: 3rem; border: 1px solid var(--border); text-align: center; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="key-modal">
+    <div class="modal-content">
+        <p class="logo" style="margin-bottom: 1rem;">PROMPTFORGE SETTINGS</p>
+        <p style="font-size: 12px; color: var(--muted); margin-bottom: 2rem;">Please enter your Gemini API Key to activate the agent.</p>
+        <input type="password" id="api-key-input" placeholder="AI Studio Key..." style="width:100%; padding: 12px; border: 1px solid var(--border); margin-bottom: 1rem; outline: none; text-align: center;">
+        <button class="primary" style="width:100%" onclick="saveKey()">Connect Gemini</button>
+        <p style="font-size: 10px; margin-top: 15px;"><a href="https://aistudio.google.com/" target="_blank" style="color: var(--muted)">Get a free key here →</a></p>
+    </div>
+</div>
+
+<header>
+    <div class="logo">PROMPTFORGE // V2.2</div>
+    <div style="display: flex; gap: 2rem;">
+        <span class="nav-link" onclick="clearAll()">Clear</span>
+        <span class="nav-link" onclick="toggleKeyModal()">Key</span>
+    </div>
+</header>
+
+<main>
+    <textarea id="user-req" placeholder="Enter your project requirements here..."></textarea>
+    
+    <div class="controls">
+        <select id="type">
+            <option value="code">Code Generator</option>
+            <option value="writing">Creative Writing</option>
+            <option value="system">AI System Prompt</option>
+            <option value="image">Image Generation</option>
+            <option value="logic">Data & Analytics</option>
+        </select>
+        <select id="tone">
+            <option value="professional">Professional</option>
+            <option value="minimalist">Minimalist</option>
+            <option value="academic">Technical</option>
+        </select>
+        <button class="primary" onclick="forgePrompt()">Forge Prompt</button>
+    </div>
+
+    <div id="output">
+        <div class="status-tag" id="status">System Offline</div>
+        <span id="output-text" style="color: var(--muted)">Ready for input...</span>
+    </div>
+</main>
+
+<script type="module">
+    import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+
+    window.saveKey = function() {
+        const key = document.getElementById('api-key-input').value;
+        if(key.length > 5) {
+            localStorage.setItem('pf_gemini_key', key);
+            document.getElementById('key-modal').classList.add('hidden');
+            document.getElementById('status').innerText = "System Ready";
+        }
+    };
+
+    window.toggleKeyModal = () => document.getElementById('key-modal').classList.toggle('hidden');
+    window.clearAll = () => { document.getElementById('user-req').value = ""; document.getElementById('output-text').innerText = "Ready for input..."; };
+
+    // Auto-check for existing key
+    if(localStorage.getItem('pf_gemini_key')) document.getElementById('key-modal').classList.add('hidden');
+
+    window.forgePrompt = async function() {
+        const apiKey = localStorage.getItem('pf_gemini_key');
+        const requirement = document.getElementById('user-req').value;
+        const type = document.getElementById('type').value;
+        const tone = document.getElementById('tone').value;
+        const outText = document.getElementById('output-text');
+        const status = document.getElementById('status');
+
+        if(!apiKey) return toggleKeyModal();
+        if(!requirement) return;
+
+        status.innerText = "Architecting...";
+        outText.innerText = "Generating prompt structure...";
+        outText.style.color = "var(--text)";
+
+        try {
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+            const instruction = `You are a Senior Prompt Engineer. Your task is to transform the user's requirement into a high-performance AI prompt.
+            Requirement: ${requirement}
+            Category: ${type}
+            Tone: ${tone}
+            Output only the final prompt. Use a structured format with Role, Objective, Constraints, and Examples.`;
+
+            const result = await model.generateContent(instruction);
+            const response = await result.response;
+            outText.innerText = response.text();
+            status.innerText = "Forge Complete";
+        } catch (error) {
+            status.innerText = "Error";
+            outText.innerText = "API Connection Error: " + error.message;
+            outText.style.color = "red";
+        }
+    };
+</script>
+</body>
+</html>
