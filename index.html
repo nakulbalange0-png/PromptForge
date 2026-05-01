@@ -116,8 +116,7 @@
 
         try {
             const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
+            const model = genAI.getGenerativeModel({ model: "gemini-pro" });
             const instruction = `You are a Senior Prompt Engineer. Your task is to transform the user's requirement into a high-performance AI prompt.
             Requirement: ${requirement}
             Category: ${type}
